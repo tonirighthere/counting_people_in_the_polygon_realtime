@@ -3,6 +3,10 @@ import numpy as np
 from PyQt5.QtCore import QThread
 import supervision as sv
 from ultralytics import YOLO
+from resources.config import (
+    TRACK_THRESHOLD, TRACK_BUFFER, MATCH_THRESHOLD,
+    CONFIDENCE_THRESHOLD, IOU_THRESHOLD, IMGSZ, CLASSES
+)
 
 class ProcessThread(QThread):
     def __init__(self, capture_queue, process_queue, model_path='resources/weights/yolov8n.pt'):
@@ -14,7 +18,11 @@ class ProcessThread(QThread):
 
     def run(self):
         model = YOLO(self.model_path)
-        tracker = sv.ByteTrack(track_activation_threshold=0.3, lost_track_buffer=120, minimum_matching_threshold=0.6)
+        tracker = sv.ByteTrack(
+            track_activation_threshold=TRACK_THRESHOLD, 
+            lost_track_buffer=TRACK_BUFFER, 
+            minimum_matching_threshold=MATCH_THRESHOLD
+        )
         
         zone = None
         zone_annotator = None
@@ -46,8 +54,15 @@ class ProcessThread(QThread):
                 zone = sv.PolygonZone(polygon=polygon)
                 zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
 
-            # Detect YOLOv8
-            results = model(frame, imgsz=640, classes=[0], conf=0.3, iou=0.5, verbose=False)[0]
+            # Detect YOLOv8 với tham số từ config
+            results = model(
+                frame, 
+                imgsz=IMGSZ, 
+                classes=CLASSES, 
+                conf=CONFIDENCE_THRESHOLD, 
+                iou=IOU_THRESHOLD, 
+                verbose=False
+            )[0]
             detections = sv.Detections.from_ultralytics(results)
             
             # Tracking ByteTrack

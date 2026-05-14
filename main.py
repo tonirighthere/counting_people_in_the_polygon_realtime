@@ -6,12 +6,13 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QFrame
 )
 from main_app.controllers.main_controller import MainController
+from resources.config import WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AI Vision Dashboard - Polygon RTSP")
-        self.resize(1000, 600)
+        self.setWindowTitle(WINDOW_TITLE)
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.setStyleSheet("background-color: #1e1e2e; color: #cdd6f4;")
 
         self.central_widget = QWidget()

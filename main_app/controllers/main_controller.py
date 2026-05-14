@@ -1,10 +1,11 @@
 from .camera_controller import CameraController
+from resources.config import RTSP_URL, MODEL_PATH
 
 class MainController:
     def __init__(self, view):
         self.view = view
-        # Cấu hình FFmpeg và model mặc định
-        self.camera_controller = CameraController(src='rtsp://localhost:8554/cam2', model_path='resources/weights/yolov8n.pt')
+        # Cấu hình FFmpeg và model từ file settings
+        self.camera_controller = CameraController(src=RTSP_URL, model_path=MODEL_PATH)
         
         # Kết nối sự kiện từ view (giao diện) tới controller
         self.view.btn_start.clicked.connect(self.start_processing)
