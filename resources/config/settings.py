@@ -3,9 +3,9 @@ RTSP_URL = 'rtsp://localhost:8554/cam2'
 
 # Cấu hình Model YOLO
 MODEL_PATH = 'resources/weights/yolov8n.pt'
-CONFIDENCE_THRESHOLD = 0.3
-IOU_THRESHOLD = 0.5
-IMGSZ = 640
+CONFIDENCE_THRESHOLD = 0.2
+IOU_THRESHOLD = 0.8
+IMGSZ = 980
 CLASSES = [0] # 0 là class 'person' trong bộ COCO
 
 # Cấu hình Tracker (ByteTrack)

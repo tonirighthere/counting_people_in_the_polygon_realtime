@@ -99,8 +99,8 @@ class MainWindow(QMainWindow):
         self.stats_in_zone.setFont(QFont("Arial", 14, QFont.Bold))
         self.stats_in_zone.setStyleSheet("color: #a6e3a1; font-weight: bold; padding: 5px;")
 
-        self.btn_start = QPushButton("▶ Bắt đầu")
-        self.btn_stop = QPushButton("⏹ Dừng")
+        self.btn_start = QPushButton("Bắt đầu")
+        self.btn_stop = QPushButton("Dừng")
         
         button_style = """
             QPushButton {

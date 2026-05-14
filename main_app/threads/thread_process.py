@@ -46,10 +46,10 @@ class ProcessThread(QThread):
             if zone is None:
                 # Tùy chỉnh vùng polygon để lấy khu vực giữa màn hình
                 polygon = np.array([
-                    [int(w * 0.30), int(h * 0.30)],
+                    [int(w * 0.50), int(h * 0.40)],
                     [int(w * 0.70), int(h * 0.30)],
-                    [int(w * 0.80), int(h * 0.80)],
-                    [int(w * 0.20), int(h * 0.80)]
+                    [int(w * 0.85), int(h * 0.40)],
+                    [int(w * 0.60), int(h * 0.60)]
                 ])
                 zone = sv.PolygonZone(polygon=polygon)
                 zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
