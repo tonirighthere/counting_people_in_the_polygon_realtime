@@ -5,8 +5,21 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame
 )
+from PyQt5.QtCore import pyqtSignal
+
+class ClickableLabel(QLabel):
+    clicked = pyqtSignal(str)
+    
+    def __init__(self, cam_id, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cam_id = cam_id
+        
+    def mousePressEvent(self, event):
+        self.clicked.emit(self.cam_id)
+        super().mousePressEvent(event)
+
 from main_app.controllers.main_controller import MainController
-from resources.config import WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT
+from resources.config import WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, CAMERAS
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -74,9 +87,40 @@ class MainWindow(QMainWindow):
 
     def setup_main_content(self):
         self.content_area = QFrame()
-        content_layout = QVBoxLayout(self.content_area)
+        content_layout = QHBoxLayout(self.content_area)
         content_layout.setContentsMargins(20, 20, 20, 20)
 
+        # Cột trái: Danh sách các Camera Previews
+        self.preview_layout = QVBoxLayout()
+        self.previews = {}
+        
+        for cam_id, config in CAMERAS.items():
+            cam_box = QFrame()
+            cam_box.setStyleSheet("background-color: #11111b; border-radius: 5px;")
+            cam_box_layout = QVBoxLayout(cam_box)
+            cam_box_layout.setContentsMargins(5, 5, 5, 5)
+            
+            title = QLabel(config["name"])
+            title.setStyleSheet("color: #bac2de; font-weight: bold; font-size: 12px;")
+            
+            preview_label = ClickableLabel(cam_id)
+            preview_label.setFixedSize(200, 150)
+            preview_label.setStyleSheet("background-color: #000000;")
+            preview_label.setAlignment(Qt.AlignCenter)
+            preview_label.clicked.connect(self.on_preview_clicked)
+            
+            cam_box_layout.addWidget(title)
+            cam_box_layout.addWidget(preview_label)
+            
+            self.preview_layout.addWidget(cam_box)
+            self.previews[cam_id] = preview_label
+            
+        self.preview_layout.addStretch()
+        content_layout.addLayout(self.preview_layout, stretch=1)
+
+        # Cột phải: Main Camera View và Controls
+        main_cam_layout = QVBoxLayout()
+        
         self.video_label = QLabel("Camera Feed Sẽ Hiển Thị Ở Đây")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setStyleSheet("""
@@ -88,7 +132,7 @@ class MainWindow(QMainWindow):
                 color: #7f849c;
             }
         """)
-        content_layout.addWidget(self.video_label, stretch=3)
+        main_cam_layout.addWidget(self.video_label, stretch=3)
 
         control_layout = QHBoxLayout()
         
@@ -124,15 +168,40 @@ class MainWindow(QMainWindow):
         control_layout.addWidget(self.btn_start)
         control_layout.addWidget(self.btn_stop)
 
-        content_layout.addLayout(control_layout, stretch=1)
+        main_cam_layout.addLayout(control_layout, stretch=1)
+        content_layout.addLayout(main_cam_layout, stretch=4)
         self.main_layout.addWidget(self.content_area)
 
-    def update_image(self, qt_img):
-        self.video_label.setPixmap(QPixmap.fromImage(qt_img))
-        self.video_label.setStyleSheet("border: 2px solid #89b4fa; border-radius: 10px;")
+    def on_preview_clicked(self, cam_id):
+        self.controller.set_active_camera(cam_id)
 
-    def update_stats(self, count_in):
-        self.stats_in_zone.setText(f"Trong Polygon: {count_in} người")
+    def update_active_cam_ui(self, active_cam_id):
+        for cam_id, label in self.previews.items():
+            parent_frame = label.parentWidget()
+            if cam_id == active_cam_id:
+                parent_frame.setStyleSheet("background-color: #313244; border: 2px solid #89b4fa; border-radius: 5px;")
+            else:
+                parent_frame.setStyleSheet("background-color: #11111b; border: 2px solid transparent; border-radius: 5px;")
+
+    def on_frame_received(self, cam_id, qt_img):
+        # Update preview
+        if cam_id in self.previews:
+            preview_img = qt_img.scaled(200, 150, Qt.KeepAspectRatio)
+            self.previews[cam_id].setPixmap(QPixmap.fromImage(preview_img))
+            
+        # Update main view if active
+        if hasattr(self, 'controller') and cam_id == self.controller.active_cam_id:
+            self.video_label.setPixmap(QPixmap.fromImage(qt_img))
+            self.video_label.setStyleSheet("border: 2px solid #89b4fa; border-radius: 10px;")
+
+    def on_stats_received(self, cam_id, counts):
+        if hasattr(self, 'controller') and cam_id == self.controller.active_cam_id:
+            if "in" in counts and "out" in counts:
+                self.stats_in_zone.setText(f"Người Vào: {counts['in']} | Ra: {counts['out']}")
+            elif "count" in counts:
+                self.stats_in_zone.setText(f"Trong Polygon: {counts['count']} người")
+            else:
+                self.stats_in_zone.setText("Đang phân tích...")
 
     def closeEvent(self, event):
         if hasattr(self, 'controller'):

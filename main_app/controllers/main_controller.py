@@ -1,27 +1,47 @@
 from .camera_controller import CameraController
-from resources.config import RTSP_URL, MODEL_PATH
+from resources.config import CAMERAS, MODEL_PATH
 
 class MainController:
     def __init__(self, view):
         self.view = view
-        # Cấu hình FFmpeg và model từ file settings
-        self.camera_controller = CameraController(src=RTSP_URL, model_path=MODEL_PATH)
+        self.cameras = {}
+        
+        # Khởi tạo các CameraController từ settings
+        for cam_id, config in CAMERAS.items():
+            cam = CameraController(
+                cam_id=cam_id, 
+                src=config["url"], 
+                task=config["task"], 
+                model_path=MODEL_PATH
+            )
+            self.cameras[cam_id] = cam
+            
+        self.active_cam_id = list(CAMERAS.keys())[0] if CAMERAS else None
+        if self.active_cam_id:
+            self.cameras[self.active_cam_id].set_active(True)
         
         # Kết nối sự kiện từ view (giao diện) tới controller
         self.view.btn_start.clicked.connect(self.start_processing)
         self.view.btn_stop.clicked.connect(self.stop_processing)
+
+    def set_active_camera(self, cam_id):
+        if cam_id in self.cameras:
+            if self.active_cam_id and self.active_cam_id in self.cameras:
+                self.cameras[self.active_cam_id].set_active(False)
+            self.active_cam_id = cam_id
+            self.cameras[self.active_cam_id].set_active(True)
+            self.view.update_active_cam_ui(cam_id)
         
     def start_processing(self):
         # Dừng luồng cũ nếu đang chạy
-        self.camera_controller.stop()
+        self.stop_processing()
         
-        # Khởi động các luồng
-        self.camera_controller.start()
-        
-        # Kết nối signal từ stream_thread để cập nhật UI
-        stream_thread = self.camera_controller.stream_thread
-        stream_thread.change_pixmap_signal.connect(self.view.update_image)
-        stream_thread.update_stats_signal.connect(self.view.update_stats)
+        # Khởi động tất cả các luồng
+        for cam_id, cam in self.cameras.items():
+            cam.start()
+            # Kết nối signal từ stream_thread để cập nhật UI
+            cam.stream_thread.change_pixmap_signal.connect(self.view.on_frame_received)
+            cam.stream_thread.update_stats_signal.connect(self.view.on_stats_received)
 
         # Cập nhật trạng thái UI
         self.view.status_label.setText("Trạng thái: Đang chạy...")
@@ -29,7 +49,8 @@ class MainController:
 
     def stop_processing(self):
         # Dừng các luồng
-        self.camera_controller.stop()
+        for cam in self.cameras.values():
+            cam.stop()
         
         # Cập nhật trạng thái UI
         self.view.status_label.setText("Trạng thái: Đã dừng")
