@@ -1,12 +1,12 @@
 # Cấu hình nguồn Video đa Camera
 CAMERAS = {
     "CAM_1": {
-        "url": "rtsp://localhost:8554/cam1",
+        "url": "rtmp://192.168.1.144:1935/TTS/cam1",
         "task": "POLYGON",
         "name": "Cam 1 (Đếm Vùng)"
     },
     "CAM_2": {
-        "url": "rtsp://localhost:8554/cam2",
+        "url": "rtmp://192.168.1.144:1935/TTS/cam2",
         "task": "LINE_CROSSING",
         "name": "Cam 2 (Vượt Tuyến)"
     }

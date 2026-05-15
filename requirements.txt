@@ -2,3 +2,4 @@ ultralytics
 supervision
 opencv-python
 numpy
+PyQt5
