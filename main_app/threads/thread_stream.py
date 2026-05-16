@@ -26,7 +26,7 @@ class StreamThread(QThread):
             h, w, ch = rgb_image.shape
             bytes_per_line = ch * w
             convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            p = convert_to_Qt_format.scaled(640, 480, Qt.KeepAspectRatio)
+            p = convert_to_Qt_format.scaled(640, 480, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
             self.change_pixmap_signal.emit(self.cam_id, p)
             self.update_stats_signal.emit(self.cam_id, counts)

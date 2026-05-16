@@ -3,20 +3,9 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPixmap
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFrame
+    QPushButton, QLabel, QFrame, QStackedWidget, QGridLayout
 )
 from PyQt5.QtCore import pyqtSignal
-
-class ClickableLabel(QLabel):
-    clicked = pyqtSignal(str)
-    
-    def __init__(self, cam_id, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.cam_id = cam_id
-        
-    def mousePressEvent(self, event):
-        self.clicked.emit(self.cam_id)
-        super().mousePressEvent(event)
 
 from main_app.controllers.main_controller import MainController
 from resources.config import WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, CAMERAS
@@ -37,8 +26,11 @@ class MainWindow(QMainWindow):
         self.setup_sidebar()
         self.setup_main_content()
         
-        # Khởi tạo Controller điều khiển logic
+        # Initialize Controller
         self.controller = MainController(self)
+        
+        # Set initial page
+        self.switch_page(0)
 
     def setup_sidebar(self):
         self.sidebar = QFrame()
@@ -60,6 +52,10 @@ class MainWindow(QMainWindow):
             QPushButton:hover {
                 background-color: #313244;
                 color: #cdd6f4;
+            }
+            QPushButton#active {
+                background-color: #313244;
+                color: #89b4fa;
             }
         """)
         
@@ -83,66 +79,82 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.btn_exit)
 
         self.btn_exit.clicked.connect(self.close)
+        
+        # Signals for page switching
+        self.btn_dashboard.clicked.connect(lambda: self.switch_page(0))
+        self.btn_settings.clicked.connect(lambda: self.switch_page(1))
+
         self.main_layout.addWidget(self.sidebar)
 
     def setup_main_content(self):
-        self.content_area = QFrame()
-        content_layout = QHBoxLayout(self.content_area)
-        content_layout.setContentsMargins(20, 20, 20, 20)
-
-        # Cột trái: Danh sách các Camera Previews
-        self.preview_layout = QVBoxLayout()
-        self.previews = {}
+        self.stacked_widget = QStackedWidget()
         
-        for cam_id, config in CAMERAS.items():
+        # Dashboard Page
+        self.dashboard_page = QWidget()
+        self.setup_dashboard_ui()
+        self.stacked_widget.addWidget(self.dashboard_page)
+        
+        # Settings Page
+        self.settings_page = QWidget()
+        self.setup_settings_ui()
+        self.stacked_widget.addWidget(self.settings_page)
+        
+        self.main_layout.addWidget(self.stacked_widget)
+
+    def setup_dashboard_ui(self):
+        layout = QVBoxLayout(self.dashboard_page)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        # Split screen area for cameras
+        self.camera_container = QWidget()
+        self.camera_layout = QGridLayout(self.camera_container)
+        self.camera_layout.setSpacing(15)
+        
+        self.video_labels = {}
+        self.stats_labels = {}
+        
+        # Add cameras to grid (parallel display)
+        for i, (cam_id, config) in enumerate(CAMERAS.items()):
             cam_box = QFrame()
-            cam_box.setStyleSheet("background-color: #11111b; border-radius: 5px;")
-            cam_box_layout = QVBoxLayout(cam_box)
-            cam_box_layout.setContentsMargins(5, 5, 5, 5)
+            cam_box.setStyleSheet("background-color: #11111b; border: 1px solid #313244; border-radius: 10px;")
+            cam_vbox = QVBoxLayout(cam_box)
             
             title = QLabel(config["name"])
-            title.setStyleSheet("color: #bac2de; font-weight: bold; font-size: 12px;")
+            title.setStyleSheet("color: #89b4fa; font-weight: bold; font-size: 14px;")
+            title.setAlignment(Qt.AlignCenter)
             
-            preview_label = ClickableLabel(cam_id)
-            preview_label.setFixedSize(200, 150)
-            preview_label.setStyleSheet("background-color: #000000;")
-            preview_label.setAlignment(Qt.AlignCenter)
-            preview_label.clicked.connect(self.on_preview_clicked)
+            video_label = QLabel("Đang chờ tín hiệu...")
+            video_label.setAlignment(Qt.AlignCenter)
+            video_label.setStyleSheet("background-color: #000000; border-radius: 5px;")
+            video_label.setMinimumSize(400, 300)
             
-            cam_box_layout.addWidget(title)
-            cam_box_layout.addWidget(preview_label)
+            stats_label = QLabel("Thông số: --")
+            stats_label.setStyleSheet("color: #a6e3a1; font-weight: bold; font-size: 14px;")
+            stats_label.setAlignment(Qt.AlignCenter)
             
-            self.preview_layout.addWidget(cam_box)
-            self.previews[cam_id] = preview_label
+            cam_vbox.addWidget(title)
+            cam_vbox.addWidget(video_label, stretch=1)
+            cam_vbox.addWidget(stats_label)
             
-        self.preview_layout.addStretch()
-        content_layout.addLayout(self.preview_layout, stretch=1)
+            # Grid placement (0,0) and (0,1) for 2 cameras side by side
+            row = i // 2
+            col = i % 2
+            self.camera_layout.addWidget(cam_box, row, col)
+            
+            self.video_labels[cam_id] = video_label
+            self.stats_labels[cam_id] = stats_label
 
-        # Cột phải: Main Camera View và Controls
-        main_cam_layout = QVBoxLayout()
-        
-        self.video_label = QLabel("Camera Feed Sẽ Hiển Thị Ở Đây")
-        self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setStyleSheet("""
-            QLabel {
-                background-color: #11111b;
-                border: 2px dashed #45475a;
-                border-radius: 10px;
-                font-size: 16px;
-                color: #7f849c;
-            }
-        """)
-        main_cam_layout.addWidget(self.video_label, stretch=3)
+        layout.addWidget(self.camera_container, stretch=1)
 
-        control_layout = QHBoxLayout()
+        # Bottom controls
+        control_panel = QFrame()
+        control_panel.setStyleSheet("background-color: #181825; border-radius: 10px; padding: 10px;")
+        control_layout = QHBoxLayout(control_panel)
         
-        self.status_label = QLabel("Trạng thái: Đang dừng")
-        self.status_label.setFont(QFont("Arial", 12))
+        self.status_label = QLabel("Trạng thái: Sẵn sàng")
+        self.status_label.setStyleSheet("color: #bac2de; font-size: 14px;")
         
-        self.stats_in_zone = QLabel("Trong Polygon: 0 người")
-        self.stats_in_zone.setFont(QFont("Arial", 14, QFont.Bold))
-        self.stats_in_zone.setStyleSheet("color: #a6e3a1; font-weight: bold; padding: 5px;")
-
         self.btn_start = QPushButton("Bắt đầu")
         self.btn_stop = QPushButton("Dừng")
         
@@ -151,57 +163,69 @@ class MainWindow(QMainWindow):
                 background-color: #89b4fa;
                 color: #11111b;
                 border-radius: 5px;
-                padding: 10px 20px;
+                padding: 10px 25px;
                 font-weight: bold;
                 font-size: 14px;
             }
             QPushButton:hover { background-color: #74c7ec; }
-            QPushButton:pressed { background-color: #89dceb; }
         """
         self.btn_start.setStyleSheet(button_style)
-        self.btn_stop.setStyleSheet(button_style.replace("#89b4fa", "#f38ba8").replace("#74c7ec", "#eba0ac").replace("#89dceb", "#f5c2e7"))
-
+        self.btn_stop.setStyleSheet(button_style.replace("#89b4fa", "#f38ba8").replace("#74c7ec", "#eba0ac"))
+        
         control_layout.addWidget(self.status_label)
-        control_layout.addStretch()
-        control_layout.addWidget(self.stats_in_zone)
         control_layout.addStretch()
         control_layout.addWidget(self.btn_start)
         control_layout.addWidget(self.btn_stop)
+        
+        layout.addWidget(control_panel)
 
-        main_cam_layout.addLayout(control_layout, stretch=1)
-        content_layout.addLayout(main_cam_layout, stretch=4)
-        self.main_layout.addWidget(self.content_area)
+    def setup_settings_ui(self):
+        layout = QVBoxLayout(self.settings_page)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        title = QLabel("Cài đặt hệ thống")
+        title.setFont(QFont("Arial", 24, QFont.Bold))
+        title.setStyleSheet("color: #89b4fa;")
+        
+        desc = QLabel("Trang cấu hình camera và tham số AI")
+        desc.setStyleSheet("color: #a6adc8; font-size: 16px;")
+        
+        layout.addWidget(title)
+        layout.addWidget(desc)
+        layout.addSpacing(50)
+        
+        # Placeholder for settings items
+        placeholder = QFrame()
+        placeholder.setFixedSize(400, 300)
+        placeholder.setStyleSheet("background-color: #181825; border: 1px dashed #45475a; border-radius: 15px;")
+        layout.addWidget(placeholder)
 
-    def on_preview_clicked(self, cam_id):
-        self.controller.set_active_camera(cam_id)
-
-    def update_active_cam_ui(self, active_cam_id):
-        for cam_id, label in self.previews.items():
-            parent_frame = label.parentWidget()
-            if cam_id == active_cam_id:
-                parent_frame.setStyleSheet("background-color: #313244; border: 2px solid #89b4fa; border-radius: 5px;")
-            else:
-                parent_frame.setStyleSheet("background-color: #11111b; border: 2px solid transparent; border-radius: 5px;")
+    def switch_page(self, index):
+        self.stacked_widget.setCurrentIndex(index)
+        # Update button styles
+        self.btn_dashboard.setObjectName("active" if index == 0 else "")
+        self.btn_settings.setObjectName("active" if index == 1 else "")
+        self.sidebar.style().unpolish(self.btn_dashboard)
+        self.sidebar.style().polish(self.btn_dashboard)
+        self.sidebar.style().unpolish(self.btn_settings)
+        self.sidebar.style().polish(self.btn_settings)
 
     def on_frame_received(self, cam_id, qt_img):
-        # Update preview
-        if cam_id in self.previews:
-            preview_img = qt_img.scaled(200, 150, Qt.KeepAspectRatio)
-            self.previews[cam_id].setPixmap(QPixmap.fromImage(preview_img))
-            
-        # Update main view if active
-        if hasattr(self, 'controller') and cam_id == self.controller.active_cam_id:
-            self.video_label.setPixmap(QPixmap.fromImage(qt_img))
-            self.video_label.setStyleSheet("border: 2px solid #89b4fa; border-radius: 10px;")
+        if cam_id in self.video_labels:
+            label = self.video_labels[cam_id]
+            # Scale image to fit label while keeping aspect ratio
+            scaled_img = qt_img.scaled(label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            label.setPixmap(QPixmap.fromImage(scaled_img))
 
     def on_stats_received(self, cam_id, counts):
-        if hasattr(self, 'controller') and cam_id == self.controller.active_cam_id:
+        if cam_id in self.stats_labels:
+            label = self.stats_labels[cam_id]
             if "in" in counts and "out" in counts:
-                self.stats_in_zone.setText(f"Người Vào: {counts['in']} | Ra: {counts['out']}")
+                label.setText(f"Vào: {counts['in']} | Ra: {counts['out']}")
             elif "count" in counts:
-                self.stats_in_zone.setText(f"Trong Polygon: {counts['count']} người")
+                label.setText(f"Hiện tại: {counts['count']} người")
             else:
-                self.stats_in_zone.setText("Đang phân tích...")
+                label.setText("Đang phân tích...")
 
     def closeEvent(self, event):
         if hasattr(self, 'controller'):
@@ -213,3 +237,4 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+

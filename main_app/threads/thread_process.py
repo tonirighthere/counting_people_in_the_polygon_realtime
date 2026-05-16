@@ -1,4 +1,6 @@
 import queue
+import time
+import cv2
 import numpy as np
 from PyQt5.QtCore import QThread
 import supervision as sv
@@ -22,7 +24,9 @@ class ProcessThread(QThread):
         self.is_active = active
 
     def run(self):
-        model = YOLO(self.model_path)
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        model = YOLO(self.model_path).to(device)
         tracker = sv.ByteTrack(
             track_activation_threshold=TRACK_THRESHOLD, 
             lost_track_buffer=TRACK_BUFFER, 
@@ -40,12 +44,11 @@ class ProcessThread(QThread):
         label_annotator = sv.LabelAnnotator(text_scale=0.5, text_thickness=1)
 
         while self._run_flag:
+            start_time = time.time()
             try:
                 frame = self.capture_queue.get(timeout=0.1)
             except queue.Empty:
                 continue
-
-            # Bỏ qua kiểm tra is_active để AI luôn chạy ngầm, đảm bảo luồng đếm người qua vạch (Line Crossing) có thể cộng dồn liên tục ngay cả khi không được hiển thị trên màn hình chính.
 
             h, w = frame.shape[:2]
 
@@ -61,8 +64,8 @@ class ProcessThread(QThread):
                     zone = sv.PolygonZone(polygon=polygon)
                     zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
                 elif self.task_type == "LINE_CROSSING":
-                    start = sv.Point(int(w * 0.2), int(h * 0.5))
-                    end = sv.Point(int(w * 0.8), int(h * 0.5))
+                    start = sv.Point(int(w * 0.2), int(h * 0.4))
+                    end = sv.Point(int(w * 0.8), int(h * 0.4))
                     zone = sv.LineZone(start=start, end=end)
                     zone_annotator = sv.LineZoneAnnotator(thickness=2, text_thickness=1, text_scale=0.5)
 
@@ -107,6 +110,21 @@ class ProcessThread(QThread):
                 annotated_frame = zone_annotator.annotate(frame=annotated_frame, line_counter=zone)
             else:
                 annotated_frame = zone_annotator.annotate(scene=annotated_frame)
+
+            # Tính toán và hiển thị FPS
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+            actual_fps = 1.0 / (current_time - getattr(self, 'last_time', current_time - 0.033))
+            self.last_time = current_time
+
+            # Vẽ FPS lên frame (Góc trên cùng bên trái)
+            cv2.putText(annotated_frame, f"FPS: {actual_fps:.1f}", (30, 40), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+            # Giới hạn FPS ở mức tối đa 30 (1/30 = 0.0333s)
+            target_delay = 1.0 / 30
+            if elapsed_time < target_delay:
+                time.sleep(target_delay - elapsed_time)
 
             # Đẩy kết quả đã xử lý sang queue cho StreamThread
             if not self.process_queue.full():

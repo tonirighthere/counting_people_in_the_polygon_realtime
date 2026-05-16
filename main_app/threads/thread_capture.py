@@ -21,10 +21,15 @@ class CaptureThread(QThread):
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     def run(self):
-        # Tối ưu cho FFMPEG RTSP (Sử dụng TCP, timeout 5s)
-        # os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;5000000"
-        #server cty
-        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtmp_buffer;0|fflags;nobuffer|stimeout;5000000"
+        # Kiểm tra nếu self.src là chuỗi (URL) trước khi dùng .startswith()
+        if isinstance(self.src, str):
+            if self.src.startswith("rtsp"):
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;5000000"
+                print(f"[Capture] Đang dùng cấu hình tối ưu cho RTSP: {self.src}")
+            elif self.src.startswith("rtmp"):
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtmp_buffer;0|fflags;nobuffer|stimeout;5000000"
+                print(f"[Capture] Đang dùng cấu hình tối ưu cho RTMP: {self.src}")
+        
         self._reconnect()
         
         consecutive_fails = 0
