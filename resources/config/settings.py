@@ -20,7 +20,7 @@ CAMERAS = {
 
 # Cấu hình Model YOLO
 MODEL_PATH = 'resources/weights/yolov8n.pt'
-CONFIDENCE_THRESHOLD = 0.2
+CONFIDENCE_THRESHOLD = 0.15
 IOU_THRESHOLD = 0.8
 IMGSZ = 1280
 CLASSES = [0]

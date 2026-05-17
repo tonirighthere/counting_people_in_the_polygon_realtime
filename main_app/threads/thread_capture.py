@@ -16,18 +16,33 @@ class CaptureThread(QThread):
         if self.cap is not None:
             self.cap.release()
         time.sleep(1)
-        # Sử dụng FFMPEG làm backend để tối ưu luồng RTSP realtime
+        # Sử dụng FFMPEG làm backend để tối ưu luồng RTSP/RTMP realtime
         self.cap = cv2.VideoCapture(self.src, cv2.CAP_FFMPEG)
+        # Buffer = 1 để giảm độ trễ (realtime)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # Yêu cầu decoder bỏ qua lỗi B/P-frame bị mất thay vì spam console
+        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'H264'))
 
     def run(self):
         # Kiểm tra nếu self.src là chuỗi (URL) trước khi dùng .startswith()
         if isinstance(self.src, str):
             if self.src.startswith("rtsp"):
-                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;5000000"
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                    "rtsp_transport;tcp"
+                    "|stimeout;5000000"
+                    "|fflags;nobuffer+discardcorrupt"
+                    "|err_detect;ignore_err"
+                    "|flags2;+export_mvs"
+                )
                 print(f"[Capture] Đang dùng cấu hình tối ưu cho RTSP: {self.src}")
             elif self.src.startswith("rtmp"):
-                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtmp_buffer;0|fflags;nobuffer|stimeout;5000000"
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                    "rtmp_buffer;0"
+                    "|fflags;nobuffer+discardcorrupt"
+                    "|err_detect;ignore_err"
+                    "|flags2;+export_mvs"
+                    "|stimeout;5000000"
+                )
                 print(f"[Capture] Đang dùng cấu hình tối ưu cho RTMP: {self.src}")
         
         self._reconnect()
