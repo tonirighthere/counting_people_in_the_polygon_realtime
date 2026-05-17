@@ -2,6 +2,10 @@ import queue
 import time
 import cv2
 import numpy as np
+import warnings
+# Tắt cảnh báo FutureWarning từ thư viện supervision (về ByteTrack deprecation)
+warnings.filterwarnings("ignore", category=FutureWarning, module="supervision")
+
 from PyQt5.QtCore import QThread
 import supervision as sv
 from ultralytics import YOLO
@@ -26,7 +30,12 @@ class ProcessThread(QThread):
     def run(self):
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        model = YOLO(self.model_path).to(device)
+        
+        # Chỉ gọi .to(device) nếu là model PyTorch (.pt, .pth). Các định dạng khác như .onnx, .engine sẽ được chỉ định qua device khi predict.
+        if self.model_path.endswith('.pt') or self.model_path.endswith('.pth'):
+            model = YOLO(self.model_path, task='detect').to(device)
+        else:
+            model = YOLO(self.model_path, task='detect')
         tracker = sv.ByteTrack(
             track_activation_threshold=TRACK_THRESHOLD, 
             lost_track_buffer=TRACK_BUFFER, 
@@ -76,7 +85,8 @@ class ProcessThread(QThread):
                 classes=CLASSES, 
                 conf=CONFIDENCE_THRESHOLD, 
                 iou=IOU_THRESHOLD, 
-                verbose=False
+                verbose=False,
+                device=device
             )[0]
             detections = sv.Detections.from_ultralytics(results)
             
