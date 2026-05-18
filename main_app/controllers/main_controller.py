@@ -34,7 +34,7 @@ class MainController:
             cam.stream_thread.update_stats_signal.connect(self.view.on_stats_received)
 
         # Update UI status
-        self.view.status_label.setText("Trạng thái: Đang chạy song song")
+        self.view.status_label.setText("Trạng thái: Đang chạy")
         self.view.status_label.setStyleSheet("color: #a6e3a1;")
 
     def stop_processing(self):

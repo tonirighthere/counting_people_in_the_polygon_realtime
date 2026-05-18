@@ -8,14 +8,15 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="supervision")
 
 from PyQt5.QtCore import QThread
 import supervision as sv
-from ultralytics import YOLO
+from .model_manager import ModelManager
 from resources.config import (
     TRACK_THRESHOLD, TRACK_BUFFER, MATCH_THRESHOLD,
     CONFIDENCE_THRESHOLD, IOU_THRESHOLD, IMGSZ, CLASSES
 )
+from resources.config import MODEL_PATH
 
 class ProcessThread(QThread):
-    def __init__(self, capture_queue, process_queue, task_type="POLYGON", model_path='resources/weights/yolov8n.pt'):
+    def __init__(self, capture_queue, process_queue, task_type="POLYGON", model_path=MODEL_PATH):
         super().__init__()
         self.capture_queue = capture_queue
         self.process_queue = process_queue
@@ -31,11 +32,8 @@ class ProcessThread(QThread):
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        # Chỉ gọi .to(device) nếu là model PyTorch (.pt, .pth). Các định dạng khác như .onnx, .engine sẽ được chỉ định qua device khi predict.
-        if self.model_path.endswith('.pt') or self.model_path.endswith('.pth'):
-            model = YOLO(self.model_path, task='detect').to(device)
-        else:
-            model = YOLO(self.model_path, task='detect')
+        # Sử dụng ModelManager (Singleton) để lấy model dùng chung, tránh load lại nhiều lần
+        model = ModelManager().get_model(self.model_path)
         tracker = sv.ByteTrack(
             track_activation_threshold=TRACK_THRESHOLD, 
             lost_track_buffer=TRACK_BUFFER, 
@@ -70,12 +68,12 @@ class ProcessThread(QThread):
                         [int(w * 0.85), int(h * 0.40)],
                         [int(w * 0.60), int(h * 0.60)]
                     ])
-                    zone = sv.PolygonZone(polygon=polygon)
+                    zone = sv.PolygonZone(polygon=polygon, triggering_anchors=[sv.Position.BOTTOM_CENTER])
                     zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
                 elif self.task_type == "LINE_CROSSING":
-                    start = sv.Point(int(w * 0.2), int(h * 0.4))
-                    end = sv.Point(int(w * 0.8), int(h * 0.4))
-                    zone = sv.LineZone(start=start, end=end)
+                    start = sv.Point(int(w * 0.35), int(h * 0.41))
+                    end = sv.Point(int(w * 0.52), int(h * 0.41))
+                    zone = sv.LineZone(start=start, end=end, triggering_anchors=[sv.Position.BOTTOM_CENTER])
                     zone_annotator = sv.LineZoneAnnotator(thickness=2, text_thickness=1, text_scale=0.5)
 
             # Detect YOLOv8
@@ -121,15 +119,21 @@ class ProcessThread(QThread):
             else:
                 annotated_frame = zone_annotator.annotate(scene=annotated_frame)
 
-            # Tính toán và hiển thị FPS
+            # Tính toán và hiển thị FPS sử dụng bộ lọc Exponential Moving Average (EMA) để làm mịn chỉ số hiển thị
             current_time = time.time()
             elapsed_time = current_time - start_time
-            actual_fps = 1.0 / (current_time - getattr(self, 'last_time', current_time - 0.033))
+            instantaneous_fps = 1.0 / (current_time - getattr(self, 'last_time', current_time - 0.033))
             self.last_time = current_time
 
+            # Khởi tạo hoặc cập nhật fps_smooth bằng bộ lọc EMA (trọng số lịch sử 90%, tức thời 10%)
+            if not hasattr(self, 'fps_smooth'):
+                self.fps_smooth = instantaneous_fps
+            else:
+                self.fps_smooth = 0.9 * self.fps_smooth + 0.1 * instantaneous_fps
+
             # Vẽ FPS lên frame (Góc trên cùng bên trái)
-            cv2.putText(annotated_frame, f"FPS: {actual_fps:.1f}", (30, 40), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(annotated_frame, f"FPS: {self.fps_smooth:.0f}", (50, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
 
             # Giới hạn FPS ở mức tối đa 30 (1/30 = 0.0333s)
             target_delay = 1.0 / 30

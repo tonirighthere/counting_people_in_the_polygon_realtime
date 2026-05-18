@@ -2,9 +2,10 @@ import queue
 from ..threads.thread_capture import CaptureThread
 from ..threads.thread_process import ProcessThread
 from ..threads.thread_stream import StreamThread
+from resources.config import MODEL_PATH
 
 class CameraController:
-    def __init__(self, cam_id, src, task, model_path='resources/weights/yolov8n.pt'):
+    def __init__(self, cam_id, src, task, model_path=MODEL_PATH):
         self.cam_id = cam_id
         self.src = src
         self.task = task

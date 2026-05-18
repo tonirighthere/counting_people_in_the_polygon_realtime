@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPixmap
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFrame, QStackedWidget, QGridLayout
+    QPushButton, QLabel, QFrame, QStackedWidget, QGridLayout, QSizePolicy
 )
 from PyQt5.QtCore import pyqtSignal
 
@@ -110,6 +110,8 @@ class MainWindow(QMainWindow):
         self.camera_container = QWidget()
         self.camera_layout = QGridLayout(self.camera_container)
         self.camera_layout.setSpacing(15)
+        self.camera_layout.setColumnStretch(0, 1)
+        self.camera_layout.setColumnStretch(1, 1)
         
         self.video_labels = {}
         self.stats_labels = {}
@@ -128,6 +130,7 @@ class MainWindow(QMainWindow):
             video_label.setAlignment(Qt.AlignCenter)
             video_label.setStyleSheet("background-color: #000000; border-radius: 5px;")
             video_label.setMinimumSize(400, 300)
+            video_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
             
             stats_label = QLabel("Thông số: --")
             stats_label.setStyleSheet("color: #a6e3a1; font-weight: bold; font-size: 14px;")

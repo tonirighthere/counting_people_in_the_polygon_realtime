@@ -24,7 +24,7 @@ class CaptureThread(QThread):
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'H264'))
 
     def run(self):
-        # Tắt toàn bộ log spam cảnh báo của FFmpeg (ví dụ: decode_slice_header, Missing reference picture)
+        # Tắt toàn bộ log spam cảnh báo của FFmpeg 
         os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
         
         # Kiểm tra nếu self.src là chuỗi (URL) trước khi dùng .startswith()
