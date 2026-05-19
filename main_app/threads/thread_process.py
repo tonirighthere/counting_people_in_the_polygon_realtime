@@ -1,3 +1,8 @@
+import os
+# Tắt toàn bộ log spam cảnh báo của FFmpeg / OpenCV trước khi import cv2
+os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
+
 import queue
 import time
 import cv2
@@ -16,12 +21,13 @@ from resources.config import (
 from resources.config import MODEL_PATH
 
 class ProcessThread(QThread):
-    def __init__(self, capture_queue, process_queue, task_type="POLYGON", model_path=MODEL_PATH):
+    def __init__(self, capture_queue, process_queue, task_type="POLYGON", model_path=MODEL_PATH, cam_id=None):
         super().__init__()
         self.capture_queue = capture_queue
         self.process_queue = process_queue
         self.model_path = model_path
         self.task_type = task_type
+        self.cam_id = cam_id
         self._run_flag = True
         self.is_active = False
 
@@ -32,8 +38,8 @@ class ProcessThread(QThread):
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        # Sử dụng ModelManager (Singleton) để lấy model dùng chung, tránh load lại nhiều lần
-        model = ModelManager().get_model(self.model_path)
+        # Sử dụng ModelManager để lấy model độc lập cho từng camera nhằm hỗ trợ xử lý song song thực sự
+        model = ModelManager().get_model(self.model_path, camera_id=self.cam_id)
         tracker = sv.ByteTrack(
             track_activation_threshold=TRACK_THRESHOLD, 
             lost_track_buffer=TRACK_BUFFER, 
@@ -71,8 +77,8 @@ class ProcessThread(QThread):
                     zone = sv.PolygonZone(polygon=polygon, triggering_anchors=[sv.Position.BOTTOM_CENTER])
                     zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
                 elif self.task_type == "LINE_CROSSING":
-                    start = sv.Point(int(w * 0.35), int(h * 0.41))
-                    end = sv.Point(int(w * 0.52), int(h * 0.41))
+                    start = sv.Point(int(w * 0.38), int(h * 0.4))
+                    end = sv.Point(int(w * 0.51), int(h * 0.4))
                     zone = sv.LineZone(start=start, end=end, triggering_anchors=[sv.Position.BOTTOM_CENTER])
                     zone_annotator = sv.LineZoneAnnotator(thickness=2, text_thickness=1, text_scale=0.5)
 

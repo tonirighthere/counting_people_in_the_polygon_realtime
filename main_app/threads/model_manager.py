@@ -1,4 +1,3 @@
-# Giúp tải model lên GPU đúng 1 lần đầu tiên, tất cả các luồng camera sau đó sẽ dùng chung chính thực thể (instance) model đó trong VRAM.
 import threading
 import torch
 from ultralytics import YOLO
@@ -16,19 +15,23 @@ class ModelManager:
                     cls._instance._load_lock = threading.Lock()
         return cls._instance
 
-    def get_model(self, model_path):
+    def get_model(self, model_path, camera_id=None):
         """
-        Lấy instance của model YOLO. Nếu model chưa được tải, thực hiện tải và lưu vào cache (VRAM).
-        Đảm bảo chỉ load duy nhất 1 lần cho mỗi đường dẫn model bất kể số lượng luồng camera.
+        Lấy instance của model YOLO. Nếu model chưa được tải cho camera tương ứng,
+        thực hiện tải và lưu vào cache (VRAM) riêng cho camera đó.
+        Đảm bảo mỗi camera có 1 thực thể model riêng để chạy song song trên GPU/CPU.
         """
+        cache_key = (model_path, camera_id) if camera_id else model_path
+
         # Kiểm tra nhanh trước khi lock để tối ưu hiệu năng
-        if model_path in self._models:
-            return self._models[model_path]
+        if cache_key in self._models:
+            return self._models[cache_key]
 
         with self._load_lock:
             # Kiểm tra lại lần nữa sau khi có lock (Double-Checked Locking Pattern)
-            if model_path not in self._models:
-                print(f"[ModelManager] Đang tải model mới vào GPU/CPU: {model_path} ...")
+            if cache_key not in self._models:
+                camera_info = f" cho camera {camera_id}" if camera_id else ""
+                print(f"[ModelManager] Đang tải model mới vào GPU/CPU{camera_info}: {model_path} ...")
                 device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 
                 # Khởi tạo YOLO model
@@ -38,7 +41,8 @@ class ModelManager:
                     model = YOLO(model_path, task='detect')
                 
                 # Lưu vào cache
-                self._models[model_path] = model
+                self._models[cache_key] = model
                 print(f"[ModelManager] Tải thành công và lưu cache model: {model_path} trên thiết bị: {device}")
             
-            return self._models[model_path]
+            return self._models[cache_key]
+

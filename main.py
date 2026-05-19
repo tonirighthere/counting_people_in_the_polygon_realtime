@@ -1,3 +1,20 @@
+import os
+import sys
+import ctypes
+
+def set_env_var(name, value):
+    os.environ[name] = str(value)
+    if sys.platform == "win32":
+        for dll_name in ["msvcrt.dll", "ucrtbase.dll"]:
+            try:
+                ctypes.CDLL(dll_name)._putenv(f"{name}={value}".encode("utf-8"))
+            except Exception:
+                pass
+
+# Tắt toàn bộ log spam cảnh báo của FFmpeg / OpenCV trước khi import bất kỳ thư viện nào khác
+set_env_var("OPENCV_FFMPEG_LOGLEVEL", "-8")
+set_env_var("OPENCV_LOG_LEVEL", "OFF")
+
 import sys
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPixmap

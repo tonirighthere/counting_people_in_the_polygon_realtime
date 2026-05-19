@@ -1,9 +1,15 @@
+import os
+# Tắt toàn bộ log spam cảnh báo của FFmpeg / OpenCV trước khi import cv2
+os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
+
 import cv2
 import queue
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QImage
 
 class StreamThread(QThread):
+    # Gửi khung hình video
     change_pixmap_signal = pyqtSignal(str, QImage)
     update_stats_signal = pyqtSignal(str, dict) # Truyền theo dict để linh hoạt { "in": 0, "out": 0 } hoặc { "count": 0 }
 

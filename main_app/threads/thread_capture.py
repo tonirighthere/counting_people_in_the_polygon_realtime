@@ -1,7 +1,23 @@
+import os
+import sys
+import ctypes
+
+def set_env_var(name, value):
+    os.environ[name] = str(value)
+    if sys.platform == "win32":
+        for dll_name in ["msvcrt.dll", "ucrtbase.dll"]:
+            try:
+                ctypes.CDLL(dll_name)._putenv(f"{name}={value}".encode("utf-8"))
+            except Exception:
+                pass
+
+# Tắt toàn bộ log spam cảnh báo của FFmpeg / OpenCV trước khi import cv2
+set_env_var("OPENCV_FFMPEG_LOGLEVEL", "-8")
+set_env_var("OPENCV_LOG_LEVEL", "OFF")
+
 import time
 import cv2
 import queue
-import os
 from PyQt5.QtCore import QThread
 
 class CaptureThread(QThread):
@@ -24,28 +40,25 @@ class CaptureThread(QThread):
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'H264'))
 
     def run(self):
-        # Tắt toàn bộ log spam cảnh báo của FFmpeg 
-        os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
-        
         # Kiểm tra nếu self.src là chuỗi (URL) trước khi dùng .startswith()
         if isinstance(self.src, str):
             if self.src.startswith("rtsp"):
-                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                set_env_var("OPENCV_FFMPEG_CAPTURE_OPTIONS", (
                     "rtsp_transport;tcp"
                     "|stimeout;5000000"
                     "|fflags;nobuffer+discardcorrupt"
                     "|err_detect;ignore_err"
                     "|flags2;+export_mvs"
-                )
+                ))
                 print(f"[Capture] Đang dùng cấu hình tối ưu cho RTSP: {self.src}")
             elif self.src.startswith("rtmp"):
-                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                set_env_var("OPENCV_FFMPEG_CAPTURE_OPTIONS", (
                     "rtmp_buffer;0"
                     "|fflags;nobuffer+discardcorrupt"
                     "|err_detect;ignore_err"
                     "|flags2;+export_mvs"
                     "|stimeout;5000000"
-                )
+                ))
                 print(f"[Capture] Đang dùng cấu hình tối ưu cho RTMP: {self.src}")
         
         self._reconnect()
