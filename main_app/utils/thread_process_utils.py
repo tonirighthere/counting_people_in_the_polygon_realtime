@@ -109,9 +109,9 @@ def draw_fps(annotated_frame, fps_smooth):
     cv2.putText(
         annotated_frame,
         f"FPS: {fps_smooth}",
-        (50, 50),
+        (2400, 100),
         cv2.FONT_HERSHEY_SIMPLEX,
         2,
         (0, 255, 0),
-        3,
+        4,
     )

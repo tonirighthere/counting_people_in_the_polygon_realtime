@@ -63,6 +63,7 @@ class CaptureThread(QThread):
         
         self._reconnect()
         
+        # đếm số lần fail liên tiếp
         consecutive_fails = 0
 
         while self._run_flag:
@@ -70,7 +71,8 @@ class CaptureThread(QThread):
                 print("[Capture] Stream chưa mở, đang kết nối lại...")
                 self._reconnect()
                 continue
-                
+            
+            # Đọc frame từ stream, return False nếu có lỗi (như mất kết nối), True nếu thành công,frame là ảnh đọc dạng numpy array ví dụ (720,1280,3)    
             ret, frame = self.cap.read()
             if ret:
                 consecutive_fails = 0
@@ -85,7 +87,7 @@ class CaptureThread(QThread):
                         pass
             else:
                 consecutive_fails += 1
-                if consecutive_fails > 30: # Cấu hình số lần fail tối đa trước khi reconnect
+                if consecutive_fails > 30:
                     print("[Capture] Mất luồng RTSP quá lâu, đang kết nối lại...")
                     self._reconnect()
                     consecutive_fails = 0
@@ -98,3 +100,5 @@ class CaptureThread(QThread):
     def stop(self):
         self._run_flag = False
         self.wait()
+
+
