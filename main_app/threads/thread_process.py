@@ -6,14 +6,22 @@ os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 import queue
 import time
 import cv2
-import numpy as np
 import warnings
 # Tắt cảnh báo FutureWarning từ thư viện supervision (về ByteTrack deprecation)
 warnings.filterwarnings("ignore", category=FutureWarning, module="supervision")
 
 from PyQt5.QtCore import QThread
 import supervision as sv
-from .model_manager import ModelManager
+from ..utils.thread_process_utils import (
+    annotate_detections,
+    annotate_zone_frame,
+    create_box_annotator,
+    create_zone,
+    draw_fps,
+    put_latest,
+    update_fps_counter,
+)
+from ..utils.model_manager import ModelManager
 from resources.config import (
     TRACK_THRESHOLD, TRACK_BUFFER, MATCH_THRESHOLD,
     CONFIDENCE_THRESHOLD, IOU_THRESHOLD, IMGSZ, CLASSES
@@ -48,13 +56,13 @@ class ProcessThread(QThread):
         
         zone = None
         zone_annotator = None
-        
-        try:
-            box_annotator = sv.BoundingBoxAnnotator(thickness=2)
-        except AttributeError:
-            box_annotator = sv.BoxAnnotator(thickness=2)
-        
+        box_annotator = create_box_annotator()
         label_annotator = sv.LabelAnnotator(text_scale=0.5, text_thickness=1)
+
+        # Khởi tạo các biến để đếm FPS trong khoảng thời gian 1 giây
+        fps_counter = 0
+        fps_start_time = time.time()
+        fps_smooth = 0
 
         while self._run_flag:
             start_time = time.time()
@@ -63,24 +71,8 @@ class ProcessThread(QThread):
             except queue.Empty:
                 continue
 
-            h, w = frame.shape[:2]
-
-            # Cấu hình vùng tùy theo task
             if zone is None:
-                if self.task_type == "POLYGON":
-                    polygon = np.array([
-                        [int(w * 0.50), int(h * 0.40)],
-                        [int(w * 0.70), int(h * 0.30)],
-                        [int(w * 0.85), int(h * 0.40)],
-                        [int(w * 0.60), int(h * 0.60)]
-                    ])
-                    zone = sv.PolygonZone(polygon=polygon, triggering_anchors=[sv.Position.BOTTOM_CENTER])
-                    zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
-                elif self.task_type == "LINE_CROSSING":
-                    start = sv.Point(int(w * 0.38), int(h * 0.4))
-                    end = sv.Point(int(w * 0.51), int(h * 0.4))
-                    zone = sv.LineZone(start=start, end=end, triggering_anchors=[sv.Position.BOTTOM_CENTER])
-                    zone_annotator = sv.LineZoneAnnotator(thickness=2, text_thickness=1, text_scale=0.5)
+                zone, zone_annotator = create_zone(self.task_type, frame.shape)
 
             # Detect YOLOv8
             results = model(
@@ -97,49 +89,29 @@ class ProcessThread(QThread):
             # Tracking ByteTrack
             detections = tracker.update_with_detections(detections)
 
-            counts = {}
-            annotated_frame = frame.copy()
-
-            if len(detections) > 0 and detections.tracker_id is not None:
-                if self.task_type == "POLYGON":
-                    mask = zone.trigger(detections=detections)
-                    in_zone_detections = detections[mask]
-                    counts = {"count": len(in_zone_detections)}
-                    
-                    labels = [f"ID:{tid}" for tid in in_zone_detections.tracker_id]
-                    annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=in_zone_detections)
-                    annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=in_zone_detections, labels=labels)
-                
-                elif self.task_type == "LINE_CROSSING":
-                    zone.trigger(detections=detections)
-                    counts = {"in": zone.in_count, "out": zone.out_count}
-                    
-                    labels = [f"ID:{tid}" for tid in detections.tracker_id]
-                    annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=detections)
-                    annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)
+            annotated_frame = frame
+            annotated_frame, counts = annotate_detections(
+                self.task_type,
+                zone,
+                detections,
+                annotated_frame,
+                box_annotator,
+                label_annotator,
+            )
 
             # Vẽ Annotation
-            if self.task_type == "LINE_CROSSING":
-                # LineZoneAnnotator cần truyền kèm text (in/out counts)
-                annotated_frame = zone_annotator.annotate(frame=annotated_frame, line_counter=zone)
-            else:
-                annotated_frame = zone_annotator.annotate(scene=annotated_frame)
+            annotated_frame = annotate_zone_frame(self.task_type, zone, zone_annotator, annotated_frame)
 
-            # Tính toán và hiển thị FPS sử dụng bộ lọc Exponential Moving Average (EMA) để làm mịn chỉ số hiển thị
-            current_time = time.time()
+            # Tính toán FPS bằng cách đếm số khung hình được xử lý trong mỗi khoảng 1 giây
+            current_time, fps_counter, fps_start_time, fps_smooth = update_fps_counter(
+                fps_counter,
+                fps_start_time,
+                fps_smooth,
+            )
             elapsed_time = current_time - start_time
-            instantaneous_fps = 1.0 / (current_time - getattr(self, 'last_time', current_time - 0.033))
-            self.last_time = current_time
-
-            # Khởi tạo hoặc cập nhật fps_smooth bằng bộ lọc EMA (trọng số lịch sử 90%, tức thời 10%)
-            if not hasattr(self, 'fps_smooth'):
-                self.fps_smooth = instantaneous_fps
-            else:
-                self.fps_smooth = 0.9 * self.fps_smooth + 0.1 * instantaneous_fps
 
             # Vẽ FPS lên frame (Góc trên cùng bên trái)
-            cv2.putText(annotated_frame, f"FPS: {self.fps_smooth:.0f}", (50, 50), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+            draw_fps(annotated_frame, fps_smooth)
 
             # Giới hạn FPS ở mức tối đa 30 (1/30 = 0.0333s)
             target_delay = 1.0 / 30
@@ -147,14 +119,7 @@ class ProcessThread(QThread):
                 time.sleep(target_delay - elapsed_time)
 
             # Đẩy kết quả đã xử lý sang queue cho StreamThread
-            if not self.process_queue.full():
-                self.process_queue.put((annotated_frame, counts))
-            else:
-                try:
-                    self.process_queue.get_nowait()
-                    self.process_queue.put((annotated_frame, counts))
-                except queue.Empty:
-                    pass
+            put_latest(self.process_queue, (annotated_frame, counts))
 
     def stop(self):
         self._run_flag = False

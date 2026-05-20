@@ -1,21 +1,4 @@
-# Cấu hình nguồn Video đa Camera
-# Cấu hình máy chủ Stream
-# "localhost:8554" hoặc "192.168.1.144:1935/TTS"
-STREAM_SERVER = "localhost:8554" 
-PROTOCOL = "rtsp" # "rtsp" hoặc "rtmp"
-
-CAMERAS = {
-    "CAM_1": {
-        "url": f"{PROTOCOL}://{STREAM_SERVER}/cam1",
-        "task": "POLYGON",
-        "name": "Cam 1 (Đếm Vùng)"
-    },
-    "CAM_2": {
-        "url": f"{PROTOCOL}://{STREAM_SERVER}/cam2",
-        "task": "LINE_CROSSING",
-        "name": "Cam 2 (Vượt Tuyến)"
-    }
-}
+from main_app.utils import CAMERAS, save_cameras
 
 
 # Cấu hình Model YOLO
@@ -23,7 +6,7 @@ MODEL_PATH = 'resources/weights/yolov8n_best.engine'
 CONFIDENCE_THRESHOLD = 0.15
 # Thuật toán NMS dùng để loại bỏ các bounding box chồng lấn lên nhau
 IOU_THRESHOLD = 0.8
-IMGSZ = 1280
+IMGSZ = 640
 CLASSES = [0]
 
 # Cấu hình Tracker (ByteTrack)

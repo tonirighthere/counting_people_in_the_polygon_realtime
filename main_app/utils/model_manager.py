@@ -1,6 +1,8 @@
 import threading
+
 import torch
 from ultralytics import YOLO
+
 
 class ModelManager:
     _instance = None
@@ -33,16 +35,15 @@ class ModelManager:
                 camera_info = f" cho camera {camera_id}" if camera_id else ""
                 print(f"[ModelManager] Đang tải model mới vào GPU/CPU{camera_info}: {model_path} ...")
                 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-                
+
                 # Khởi tạo YOLO model
                 if model_path.endswith('.pt') or model_path.endswith('.pth'):
                     model = YOLO(model_path, task='detect').to(device)
                 else:
                     model = YOLO(model_path, task='detect')
-                
+
                 # Lưu vào cache
                 self._models[cache_key] = model
                 print(f"[ModelManager] Tải thành công và lưu cache model: {model_path} trên thiết bị: {device}")
-            
-            return self._models[cache_key]
 
+            return self._models[cache_key]

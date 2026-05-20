@@ -1,0 +1,8 @@
+CAM_1:
+  url: rtsp://localhost:8554/cam1
+  task: POLYGON
+  name: Cam 1 (Đếm Vùng)
+CAM_2:
+  url: rtsp://localhost:8554/cam2
+  task: POLYGON
+  name: Cam 2
