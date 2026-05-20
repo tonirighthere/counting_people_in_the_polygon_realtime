@@ -4,5 +4,5 @@ CAM_1:
   name: Cam 1 (Đếm Vùng)
 CAM_2:
   url: rtsp://localhost:8554/cam2
-  task: POLYGON
-  name: Cam 2
+  task: LINE_CROSSING
+  name: Cam 2 (Vượt Tuyến)

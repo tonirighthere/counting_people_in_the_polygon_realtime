@@ -11,8 +11,8 @@ class CameraController:
         self.task = task
         self.model_path = model_path
         
-        self.capture_queue = queue.Queue(maxsize=2)
-        self.process_queue = queue.Queue(maxsize=2)
+        self.capture_queue = queue.Queue(maxsize=1)
+        self.process_queue = queue.Queue(maxsize=1)
         
         self.capture_thread = None
         self.process_thread = None

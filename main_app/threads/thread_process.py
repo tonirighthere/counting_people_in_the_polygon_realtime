@@ -46,7 +46,7 @@ class ProcessThread(QThread):
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        # Sử dụng ModelManager để lấy model độc lập cho từng camera nhằm hỗ trợ xử lý song song thực sự
+        # Sử dụng ModelManager để lấy model độc lập cho từng camera
         model = ModelManager().get_model(self.model_path, camera_id=self.cam_id)
         tracker = sv.ByteTrack(
             track_activation_threshold=TRACK_THRESHOLD, 
@@ -82,14 +82,15 @@ class ProcessThread(QThread):
                 conf=CONFIDENCE_THRESHOLD, 
                 iou=IOU_THRESHOLD, 
                 verbose=False,
-                device=device
+                device=device,
+                rect=False  # Đảm bảo ảnh đầu vào được pad thành hình vuông 640x640
             )[0]
             detections = sv.Detections.from_ultralytics(results)
             
             # Tracking ByteTrack
             detections = tracker.update_with_detections(detections)
 
-            annotated_frame = frame
+            annotated_frame = frame.copy()
             annotated_frame, counts = annotate_detections(
                 self.task_type,
                 zone,

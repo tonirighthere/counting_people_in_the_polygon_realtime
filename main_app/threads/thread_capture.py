@@ -11,8 +11,8 @@ def set_env_var(name, value):
             except Exception:
                 pass
 
-# Tắt toàn bộ log spam cảnh báo của FFmpeg / OpenCV trước khi import cv2
-set_env_var("OPENCV_FFMPEG_LOGLEVEL", "-8")
+# Tắt log spam chỉ error của FFmpeg / OpenCV trước khi import cv2
+set_env_var("OPENCV_FFMPEG_LOGLEVEL", "8")
 set_env_var("OPENCV_LOG_LEVEL", "OFF")
 
 import time
