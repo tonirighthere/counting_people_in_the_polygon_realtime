@@ -1,6 +1,5 @@
 import os
 
-import json
 import yaml
 
 
@@ -8,10 +7,6 @@ UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(os.path.dirname(UTILS_DIR))
 CONFIG_DIR = os.path.join(ROOT_DIR, "resources", "config")
 CAMERAS_YAML_PATH = os.path.join(CONFIG_DIR, "cameras.yaml")
-LEGACY_CAMERAS_JSON_PATH = os.path.join(CONFIG_DIR, "cameras.json")
-
-# Backward-compatible alias for old imports
-CAMERAS_JSON_PATH = CAMERAS_YAML_PATH
 
 def ensure_config_dir():
 	os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -57,16 +52,6 @@ def load_cameras():
 				return _normalize_cameras(yaml.safe_load(file_handle))
 		except Exception as error:
 			print(f"[ConfigManager] Lỗi tải cameras.yaml: {error}")
-
-	if os.path.exists(LEGACY_CAMERAS_JSON_PATH):
-		try:
-			with open(LEGACY_CAMERAS_JSON_PATH, "r", encoding="utf-8") as file_handle:
-				migrated_cameras = _normalize_cameras(json.load(file_handle))
-			_write_cameras(migrated_cameras)
-			print("[ConfigManager] Đã migrate cameras.json -> cameras.yaml")
-			return migrated_cameras
-		except Exception as error:
-			print(f"[ConfigManager] Lỗi migrate từ cameras.json: {error}")
 
 	cameras = {}
 	try:

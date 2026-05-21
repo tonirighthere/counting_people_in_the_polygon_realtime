@@ -20,6 +20,7 @@ class CameraController:
         
         self.is_active = False
 
+    # Bật/tắt AI runtime không cần restart lại thread
     def set_active(self, active):
         self.is_active = active
         if self.process_thread:
@@ -28,8 +29,10 @@ class CameraController:
     def start(self):
         self.capture_thread = CaptureThread(self.capture_queue, self.src)
         self.process_thread = ProcessThread(
-            self.capture_queue, self.process_queue, 
-            task_type=self.task, model_path=self.model_path,
+            self.capture_queue, 
+            self.process_queue, 
+            task_type=self.task, 
+            model_path=self.model_path,
             cam_id=self.cam_id
         )
         self.process_thread.set_active(self.is_active)

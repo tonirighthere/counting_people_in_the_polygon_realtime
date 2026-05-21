@@ -20,10 +20,12 @@ def create_zone(task_type, frame_shape):
         polygon = np.array([
             [int(w * 0.50), int(h * 0.40)],
             [int(w * 0.70), int(h * 0.30)],
-            [int(w * 0.85), int(h * 0.40)],
+            [int(w * 0.80), int(h * 0.40)],
             [int(w * 0.60), int(h * 0.60)],
         ])
+        # trigger() → kiểm tra object có trong vùng không
         zone = sv.PolygonZone(polygon=polygon, triggering_anchors=[sv.Position.BOTTOM_CENTER])
+        # vẽ polygon lên frame
         zone_annotator = sv.PolygonZoneAnnotator(zone=zone, color=sv.Color.WHITE)
         return zone, zone_annotator
 
@@ -39,10 +41,12 @@ def create_zone(task_type, frame_shape):
 
 def annotate_detections(task_type, zone, detections, annotated_frame, box_annotator, label_annotator):
     counts = {}
-
+    # Điều kiện kích hoạt: Phải có đối tượng (len(detections) > 0) và đối tượng đó phải được định danh / theo vết
     if len(detections) > 0 and detections.tracker_id is not None:
         if task_type == "POLYGON" and zone is not None:
+            # Trả về một mảng Boolean (True/False) cho biết đối tượng nào đang nằm trong đa giác.
             mask = zone.trigger(detections=detections)
+            # Lọc ra chỉ những đối tượng nằm trong vùng
             in_zone_detections = detections[mask]
             counts = {"count": len(in_zone_detections)}
 

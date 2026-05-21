@@ -83,13 +83,16 @@ class ProcessThread(QThread):
                 iou=IOU_THRESHOLD, 
                 verbose=False,
                 device=device,
-                rect=False  # Đảm bảo ảnh đầu vào được pad thành hình vuông 640x640
+                rect=False  # padding ảnh thành hình vuông 640x640
             )[0]
+
+            # chuyển từ output của YOLO sang Detections (chỉ có toạ độ hộp)
             detections = sv.Detections.from_ultralytics(results)
             
             # Tracking ByteTrack
             detections = tracker.update_with_detections(detections)
 
+            # ko vẽ lên frame gốc => tránh ảnh hưởng detect và track
             annotated_frame = frame.copy()
             annotated_frame, counts = annotate_detections(
                 self.task_type,

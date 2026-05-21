@@ -5,7 +5,7 @@ from main_app.utils import CAMERAS, save_cameras
 MODEL_PATH = 'resources/weights/yolov8n_best.engine'
 CONFIDENCE_THRESHOLD = 0.15
 # Thuật toán NMS dùng để loại bỏ các bounding box chồng lấn lên nhau
-IOU_THRESHOLD = 0.8
+IOU_THRESHOLD = 0.6
 IMGSZ = (640, 640)
 CLASSES = [0]
 

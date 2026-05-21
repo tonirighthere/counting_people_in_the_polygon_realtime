@@ -70,7 +70,7 @@ class MainController:
             self.view.update_camera_card_ui(cam_id)
 
     def toggle_camera_active(self, cam_id):
-        """Bật/tắt trạng thái hoạt động của camera cụ thể"""
+        """Bật/tắt camera cụ thể"""
         if cam_id not in self.cameras:
             return
         
