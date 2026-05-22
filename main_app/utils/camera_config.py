@@ -34,6 +34,8 @@ def _normalize_cameras(raw_data):
 				"task": cam_cfg["task"].strip(),
 				"name": cam_cfg["name"].strip(),
 			}
+			if "points" in cam_cfg:
+				normalized[cam_id]["points"] = cam_cfg["points"]
 
 	return normalized
 

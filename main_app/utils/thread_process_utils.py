@@ -13,16 +13,77 @@ def create_box_annotator():
         return sv.BoxAnnotator(thickness=2)
 
 
-def create_zone(task_type, frame_shape):
-    h, w = frame_shape[:2]
+def select_points_interactive(task_type, frame, window_name="Select Points"):
+    points = []
+    temp_frame = frame.copy()
 
     if task_type == "POLYGON":
-        polygon = np.array([
-            [int(w * 0.50), int(h * 0.40)],
-            [int(w * 0.70), int(h * 0.30)],
-            [int(w * 0.80), int(h * 0.40)],
-            [int(w * 0.60), int(h * 0.60)],
-        ])
+        instruction = "Polygon: Chọn 4 điểm chính xác, nhấn Enter để lưu, chuột phải để xóa điểm cuối"
+    else:
+        instruction = "Line: Chọn 2 điểm chính xác, nhấn Enter để lưu, chuột phải để xóa điểm cuối"
+
+    def mouse_callback(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # Không cho phép chọn quá số điểm yêu cầu
+            if task_type == "POLYGON" and len(points) >= 4:
+                return
+            if task_type == "LINE_CROSSING" and len(points) >= 2:
+                return
+
+            points.append([x, y])
+            cv2.circle(temp_frame, (x, y), 5, (0, 0, 255), -1)
+            
+            if task_type == "POLYGON":
+                if len(points) > 1:
+                    cv2.line(temp_frame, tuple(points[-2]), tuple(points[-1]), (255, 0, 0), 2)
+                # Đóng vòng polygon nếu đã đủ 4 điểm
+                if len(points) == 4:
+                    cv2.line(temp_frame, tuple(points[3]), tuple(points[0]), (255, 0, 0), 2)
+            elif task_type == "LINE_CROSSING" and len(points) == 2:
+                cv2.line(temp_frame, tuple(points[0]), tuple(points[1]), (255, 0, 0), 2)
+            
+            cv2.imshow(window_name, temp_frame)
+            
+        elif event == cv2.EVENT_RBUTTONDOWN:
+            if points:
+                points.pop()
+                temp_frame[:] = frame.copy()
+                cv2.putText(temp_frame, instruction, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                for i, p in enumerate(points):
+                    cv2.circle(temp_frame, tuple(p), 5, (0, 0, 255), -1)
+                    if i > 0:
+                        if task_type == "POLYGON" or (task_type == "LINE_CROSSING" and i == 1):
+                            cv2.line(temp_frame, tuple(points[i-1]), tuple(p), (255, 0, 0), 2)
+                cv2.imshow(window_name, temp_frame)
+
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback(window_name, mouse_callback)
+        
+    cv2.putText(temp_frame, instruction, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.imshow(window_name, temp_frame)
+
+    while True:
+        key = cv2.waitKey(1) & 0xFF
+        if key == 13:  # Enter
+            if task_type == "POLYGON" and len(points) == 4:
+                break
+            elif task_type == "LINE_CROSSING" and len(points) == 2:
+                break
+            else:
+                print(f"[Warning] Không đủ điểm để xác định {task_type}")
+        elif key == 27: # Esc
+            break
+
+    cv2.destroyWindow(window_name)
+    return points
+
+
+def create_zone(task_type, points):
+    if not points:
+        return None, None
+
+    if task_type == "POLYGON":
+        polygon = np.array(points)
         # trigger() → kiểm tra object có trong vùng không
         zone = sv.PolygonZone(polygon=polygon, triggering_anchors=[sv.Position.BOTTOM_CENTER])
         # vẽ polygon lên frame
@@ -30,8 +91,8 @@ def create_zone(task_type, frame_shape):
         return zone, zone_annotator
 
     if task_type == "LINE_CROSSING":
-        start = sv.Point(int(w * 0.38), int(h * 0.32))
-        end = sv.Point(int(w * 0.51), int(h * 0.32))
+        start = sv.Point(points[0][0], points[0][1])
+        end = sv.Point(points[1][0], points[1][1])
         zone = sv.LineZone(start=start, end=end, triggering_anchors=[sv.Position.CENTER])
         zone_annotator = sv.LineZoneAnnotator(thickness=2, text_thickness=1, text_scale=0.5)
         return zone, zone_annotator
@@ -41,7 +102,7 @@ def create_zone(task_type, frame_shape):
 
 def annotate_detections(task_type, zone, detections, annotated_frame, box_annotator, label_annotator):
     counts = {}
-    # Điều kiện kích hoạt: Phải có đối tượng (len(detections) > 0) và đối tượng đó phải được định danh / theo vết
+    # Điều kiện kích hoạt: Phải có đối tượng (len(detections) > 0) và đối tượng đó phải được định danh
     if len(detections) > 0 and detections.tracker_id is not None:
         if task_type == "POLYGON" and zone is not None:
             # Trả về một mảng Boolean (True/False) cho biết đối tượng nào đang nằm trong đa giác.

@@ -2,7 +2,21 @@ CAM_1:
   url: rtsp://localhost:8554/cam1
   task: POLYGON
   name: Cam 1 (Đếm Vùng)
+  points:
+  - - 1344
+    - 608
+  - - 1881
+    - 456
+  - - 2150
+    - 608
+  - - 1612
+    - 912
 CAM_2:
   url: rtsp://localhost:8554/cam2
   task: LINE_CROSSING
   name: Cam 2 (Vượt Tuyến)
+  points:
+  - - 1021
+    - 486
+  - - 1370
+    - 486

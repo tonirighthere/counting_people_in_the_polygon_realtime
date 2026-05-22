@@ -1,7 +1,4 @@
-import os
 import sys
-import ctypes
-
 from PyQt5.QtWidgets import QApplication
 from main_app.views.main_window import MainWindow
 

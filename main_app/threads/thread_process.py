@@ -17,6 +17,7 @@ from ..utils.thread_process_utils import (
     annotate_zone_frame,
     create_box_annotator,
     create_zone,
+    select_points_interactive,
     draw_fps,
     put_latest,
     update_fps_counter,
@@ -27,6 +28,7 @@ from resources.config import (
     CONFIDENCE_THRESHOLD, IOU_THRESHOLD, IMGSZ, CLASSES
 )
 from resources.config import MODEL_PATH
+from ..utils.camera_config import load_cameras, save_cameras
 
 class ProcessThread(QThread):
     def __init__(self, capture_queue, process_queue, task_type="POLYGON", model_path=MODEL_PATH, cam_id=None):
@@ -72,7 +74,22 @@ class ProcessThread(QThread):
                 continue
 
             if zone is None:
-                zone, zone_annotator = create_zone(self.task_type, frame.shape)
+                cameras = load_cameras()
+                cam_cfg = cameras.get(self.cam_id)
+                
+                if cam_cfg:
+                    points = cam_cfg.get("points")
+                    if not points:
+                        window_name = f"Setup {self.cam_id}" if self.cam_id else "Setup Camera"
+                        points = select_points_interactive(self.task_type, frame, window_name)
+                        cam_cfg["points"] = points
+                        cameras[self.cam_id] = cam_cfg
+                        save_cameras(cameras)
+                else:
+                    window_name = f"Setup {self.cam_id}" if self.cam_id else "Setup Camera"
+                    points = select_points_interactive(self.task_type, frame, window_name)
+
+                zone, zone_annotator = create_zone(self.task_type, points)
 
             # Detect YOLOv8
             results = model(
@@ -114,7 +131,7 @@ class ProcessThread(QThread):
             )
             elapsed_time = current_time - start_time
 
-            # Vẽ FPS lên frame (Góc trên cùng bên trái)
+            # Vẽ FPS lên frame
             draw_fps(annotated_frame, fps_smooth)
 
             # Giới hạn FPS ở mức tối đa 30 (1/30 = 0.0333s)
