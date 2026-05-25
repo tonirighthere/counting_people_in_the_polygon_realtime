@@ -88,6 +88,13 @@ class ProcessThread(QThread):
                 else:
                     window_name = f"Setup {self.cam_id}" if self.cam_id else "Setup Camera"
                     points = select_points_interactive(self.task_type, frame, window_name)
+                    cameras[self.cam_id] = {
+                        "url": "",
+                        "task": self.task_type,
+                        "name": "",
+                        "points": points,
+                    }
+                    save_cameras(cameras)
 
                 zone, zone_annotator = create_zone(self.task_type, points)
 

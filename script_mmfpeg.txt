@@ -1,0 +1,8 @@
+ffmpeg -re -stream_loop -1 -i "d:\intern\Atin\test\data\count-in.mp4" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 8M -g 30 -f rtsp rtsp://localhost:8554/cam1
+ffmpeg -re -stream_loop -1 -i "d:\intern\Atin\test\data\count-through.mp4" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 8M -g 30 -f rtsp rtsp://localhost:8554/cam2
+
+(qua server cty)
+ffmpeg -re -stream_loop -1 -i "d:\intern\Atin\test\data\count-in.mp4" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 4M -g 30 -f flv rtmp://192.168.1.144:1935/TTS/cam1
+ffmpeg -re -stream_loop -1 -i "d:\intern\Atin\test\data\count-through.mp4" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 4M -g 30 -f flv rtmp://192.168.1.144:1935/TTS/cam2
+
+
